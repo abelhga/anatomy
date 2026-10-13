@@ -7,16 +7,19 @@ export function hopperInside(P, h, level, grain) {
   const ring = (z) => {
     if (z >= h.z1) return [h.xa, h.ya, h.xb, h.yb];
     const t = Math.max(0, (z - h.z0) / (h.z1 - h.z0));
-    return [lerp(h.ox0, h.xa, t), lerp(h.oy0, h.ya, t), lerp(h.ox1, h.xb, t), lerp(h.oy1, h.yb, t)];
+    return [lerp(h.ox0, h.cx0, t), lerp(h.oy0, h.cy0, t), lerp(h.ox1, h.cx1, t), lerp(h.oy1, h.cy1, t)];
   };
   const [ia, ja, ib, jb] = [h.xa + 0.35, h.ya + 0.35, h.xb - 0.35, h.yb - 0.35];
   const open = d([[ia, ja, h.top], [ib, ja, h.top], [ib, jb, h.top], [ia, jb, h.top]]);
   const out = [`<clipPath id="${h.id}-clip"><path d="${open}"/></clipPath><g clip-path="url(#${h.id}-clip)">`];
   out.push(`<path class="hg-cavity" d="${open}"/>`);
   const [b0, c0, b1, c1] = ring(h.z0);
-  out.push(`<path class="hg-wall" data-w="1" d="${d([[ia, ja, h.top], [ib, ja, h.top], [ib, ja, h.z1], [b1, c0, h.z0], [b0, c0, h.z0], [ia, ja, h.z1]])}"/>`);
-  out.push(`<path class="hg-wall" data-w="2" d="${d([[ia, ja, h.top], [ia, jb, h.top], [ia, jb, h.z1], [b0, c1, h.z0], [b0, c0, h.z0], [ia, ja, h.z1]])}"/>`);
-  out.push(`<path class="iso-line" data-tone="faint" d="${"M" + at([ia, ja, h.z1]).map((v) => v.toFixed(1)).join(" ") + "L" + at([ib, ja, h.z1]).map((v) => v.toFixed(1)).join(" ") + "M" + at([ia, ja, h.z1]).map((v) => v.toFixed(1)).join(" ") + "L" + at([ia, jb, h.z1]).map((v) => v.toFixed(1)).join(" ")}"/>`);
+  out.push(`<path class="hg-wall" data-w="1" d="${d([[ia, ja, h.top], [ib, ja, h.top], [ib, ja, h.z1], [ia, ja, h.z1]])}"/>`);
+  out.push(`<path class="hg-wall" data-w="2" d="${d([[ia, ja, h.top], [ia, jb, h.top], [ia, jb, h.z1], [ia, ja, h.z1]])}"/>`);
+  out.push(`<path class="hg-ledge" d="${d([[ia, ja, h.z1], [ib, ja, h.z1], [ib, jb, h.z1], [ia, jb, h.z1]])}"/>`);
+  out.push(`<path class="hg-wall" data-w="0" d="${d([[h.cx0, h.cy0, h.z1], [h.cx1, h.cy0, h.z1], [h.cx1, h.cy1, h.z1], [h.cx0, h.cy1, h.z1]])}"/>`);
+  out.push(`<path class="hg-wall" data-w="1" d="${d([[h.cx0, h.cy0, h.z1], [h.cx1, h.cy0, h.z1], [b1, c0, h.z0], [b0, c0, h.z0]])}"/>`);
+  out.push(`<path class="hg-wall" data-w="2" d="${d([[h.cx0, h.cy0, h.z1], [h.cx0, h.cy1, h.z1], [b0, c1, h.z0], [b0, c0, h.z0]])}"/>`);
   if (level > h.z0 + 0.05) {
     const z = Math.min(level, h.top);
     const [x0, y0, x1, y1] = ring(z);

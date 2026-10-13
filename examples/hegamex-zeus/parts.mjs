@@ -81,9 +81,10 @@ export function frameBetween(a, b, up = [0, 0, 1]) {
   return { o: a, a: axis, u, v };
 }
 
-export function scene(P, recorder, { moves = {} } = {}) {
+export function scene(P, recorder, { moves = {}, rides = {} } = {}) {
   const R = recorder;
   const moveOf = (piece) => moves[piece] ?? [0, 0, 0];
+  const rideOf = (piece) => rides[piece] ?? piece;
   const at = (p) => k.iso(p, P);
   const S = (paths, style) => k.solidSvg(paths, style);
   const L = (d, style) => k.lineSvg(d, style);
@@ -91,44 +92,44 @@ export function scene(P, recorder, { moves = {} } = {}) {
 
   function put(piece, ref, svg, { bias = 0, shapes = [], name, move = moveOf(piece), ride, route, chunk } = {}) {
     const id = route ? name : R.nameFor(name ?? `${piece}.item`);
-    R.put({ piece, ride: ride ?? piece, at: ref, bias, svg, move, shapes, name: id, route, chunk });
+    R.put({ piece, ride: ride ?? rideOf(piece), at: ref, bias, svg, move, shapes, name: id, route, chunk });
     return id;
   }
 
-  function poly(piece, verts, faces, style = {}, { extra = "", inner = "", bias = 0, name, owner, move, cls } = {}) {
+  function poly(piece, verts, faces, style = {}, { extra = "", inner = "", bias = 0, name, owner, move, cls, meta = {} } = {}) {
     const id = R.nameFor(name ?? `${piece}.poly`);
     const paths = polyPaths(verts, faces, P);
     const centre = G.mul3(verts.reduce((s, v) => G.add3(s, v), [0, 0, 0]), 1 / verts.length);
     const body = S(paths, { tone: "hi", ...style, inner, className: cls });
-    put(piece, centre, body + extra, { bias, move, name: id, shapes: [R.solid(A.hull(verts, faces, { name: id, owner }))] });
+    put(piece, centre, body + extra, { bias, move, name: id, shapes: [R.solid(A.hull(verts, faces, { name: id, owner, ...meta }))] });
     return id;
   }
 
-  function box(piece, x0, y0, z0, x1, y1, z1, style = {}, { extra = "", inner = "", bias = 0, name, owner, move, r = 0.3, bevel = 0.3, steps = 2, cls } = {}) {
+  function box(piece, x0, y0, z0, x1, y1, z1, style = {}, { extra = "", inner = "", bias = 0, name, owner, move, r = 0.3, bevel = 0.3, steps = 2, cls, meta = {} } = {}) {
     const plan = { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), d: Math.abs(y1 - y0), r };
     const z = Math.min(z0, z1);
     const h = Math.abs(z1 - z0);
     const id = R.nameFor(name ?? `${piece}.box`);
     const body = S(k.slabOf(plan, z, h, P, steps, bevel), { tone: "hi", ...style, inner: typeof inner === "function" ? inner(plan, z, h) : inner, className: cls });
-    put(piece, [plan.x + plan.w / 2, plan.y + plan.d / 2, z + h / 2], body + extra, { bias, move, name: id, shapes: [R.solid(A.slab(plan, z, h, { name: id, owner }, steps))] });
+    put(piece, [plan.x + plan.w / 2, plan.y + plan.d / 2, z + h / 2], body + extra, { bias, move, name: id, shapes: [R.solid(A.slab(plan, z, h, { name: id, owner, ...meta }, steps))] });
     return id;
   }
 
-  function member(piece, a, b, w, h, style = {}, { bias = 0, name, owner, move, extra = "", cls, up } = {}) {
+  function member(piece, a, b, w, h, style = {}, { bias = 0, name, owner, move, extra = "", cls, up, meta = {} } = {}) {
     const F = frameBetween(a, b, up);
     const len = G.len3(G.sub3(b, a));
     const square = [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]];
     const id = R.nameFor(name ?? `${piece}.member`);
     const body = S(G.prismOf(F, square, 0, len, P), { tone: "mid", ...style, className: cls });
-    put(piece, G.mul3(G.add3(a, b), 0.5), body + extra, { bias, move, name: id, shapes: [R.solid(A.prism(F, square, 0, len, { name: id, owner }))] });
+    put(piece, G.mul3(G.add3(a, b), 0.5), body + extra, { bias, move, name: id, shapes: [R.solid(A.prism(F, square, 0, len, { name: id, owner, ...meta }))] });
     return id;
   }
 
-  function turned(piece, F, profile, style = {}, { extra = "", inner = "", bias = 0, name, owner, move, steps, cls, smooth } = {}) {
+  function turned(piece, F, profile, style = {}, { extra = "", inner = "", bias = 0, name, owner, move, steps, cls, smooth, meta = {} } = {}) {
     const id = R.nameFor(name ?? `${piece}.turned`);
     const paths = G.solidOf(profile, F, P, { ...(steps ? { steps } : {}), ...(smooth !== undefined ? { smooth } : {}) });
     const mid = (profile[0][0] + profile[profile.length - 1][0]) / 2;
-    put(piece, G.add3(F.o, G.mul3(F.a, mid)), S(paths, { tone: "hi", ...style, inner, className: cls }) + extra, { bias, move, name: id, shapes: [R.solid(A.solid(F, profile, { name: id, owner }))] });
+    put(piece, G.add3(F.o, G.mul3(F.a, mid)), S(paths, { tone: "hi", ...style, inner, className: cls }) + extra, { bias, move, name: id, shapes: [R.solid(A.solid(F, profile, { name: id, owner, ...meta }))] });
     return id;
   }
 
@@ -138,7 +139,7 @@ export function scene(P, recorder, { moves = {} } = {}) {
 
   function tube(piece, route, r, { name, tone = "hi", bias = 0, move, maxLength = 20, gaps = [], caps = true, owner, limp = false, touch, free, ends, cls, rings } = {}) {
     const id = R.nameFor(name ?? `${piece}.tube`);
-    R.route(id, route, r, { owner: owner ?? id, gaps, limp, touch, free, ends, piece, move: move ?? moveOf(piece), ride: piece });
+    R.route(id, route, r, { owner: owner ?? id, gaps, limp, touch, free, ends, piece, move: move ?? moveOf(piece), ride: rideOf(piece) });
     tubePieces(route, r, P, { maxLength, gaps, caps, ...(rings ? { rings } : {}) }).forEach((part, index) => {
       const svg = tubeSvg(part, { tone });
       put(piece, part.mid, cls ? `<g class="${cls}">${svg}</g>` : svg, { bias, move, name: `${id}:${index}`, route: id, chunk: index, shapes: [A.tube(part.points, part.radii)] });

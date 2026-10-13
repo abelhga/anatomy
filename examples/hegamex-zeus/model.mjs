@@ -45,7 +45,7 @@ export function hopperTable(geo, steps = 60) {
   const area = (z) => {
     if (z >= geo.z1) return (geo.xb - geo.xa) * (geo.yb - geo.ya);
     const t = Math.max(0, (z - geo.z0) / (geo.z1 - geo.z0));
-    return (lerp(geo.ox1, geo.xb, t) - lerp(geo.ox0, geo.xa, t)) * (lerp(geo.oy1, geo.yb, t) - lerp(geo.oy0, geo.ya, t));
+    return (lerp(geo.ox1, geo.cx1, t) - lerp(geo.ox0, geo.cx0, t)) * (lerp(geo.oy1, geo.cy1, t) - lerp(geo.oy0, geo.cy0, t));
   };
   const out = [[geo.z0, 0]];
   let volume = 0;

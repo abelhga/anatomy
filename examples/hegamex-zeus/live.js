@@ -22,7 +22,7 @@ const screen = (p) => iso(p, P);
 
 const nodes = [...itemsGroup.querySelectorAll(":scope > .it")].map((el) => {
   const m = el.dataset.m.split(",").map(Number);
-  return { el, piece: el.dataset.piece, key: Number(el.dataset.k), m, lift: m[0] * D.V[0] + m[1] * D.V[1] + m[2] * D.V[2], shown: "" };
+  return { el, piece: el.dataset.piece, ride: el.dataset.ride, key: Number(el.dataset.k), m, lift: m[0] * D.V[0] + m[1] * D.V[1] + m[2] * D.V[2], shown: "" };
 });
 let order = nodes.map((_, i) => i);
 const moving = nodes.filter((node) => node.m.some((v) => v !== 0));
@@ -31,6 +31,9 @@ const jaws = [...svg.querySelectorAll("[data-jaw]")];
 const loads = { flat: svg.querySelector('[data-load="flat"]'), incline: svg.querySelector('[data-load="incline"]') };
 const waterCol = svg.querySelector("[data-water]");
 const drum = svg.querySelector("[data-drum]");
+const dustLayer = svg.querySelector(".hg-dust");
+const puffs = [];
+let dustClock = 0;
 const rows = Object.fromEntries([...root.querySelectorAll("[data-row]")].map((row) => [row.dataset.row, { got: row.querySelector("[data-got]"), bar: row.querySelector("[data-bar]"), unit: row.querySelector("[data-got]").textContent.split(" ").pop() }]));
 
 const CELL = 1.5;
@@ -142,19 +145,45 @@ function drawWater() {
   waterCol.setAttribute("d", share > 0.01 ? `M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}` : "");
 }
 
+const shares = { olla: 1, apart: 0, jacks: 0 };
+const springs = { apart: { x: 0, v: 0, target: 0 }, jacks: { x: 0, v: 0, target: 0 } };
+const shareOf = (node) => shares[node.ride] ?? 0;
+function stepSprings(dt) {
+  let busy = false;
+  for (const [id, sp] of Object.entries(springs)) {
+    if (still.matches) {
+      sp.x = sp.target;
+      sp.v = 0;
+    } else {
+      for (let n = 0; n < 4; n++) {
+        sp.v += ((sp.target - sp.x) * 60 - sp.v * 14) * (dt / 4);
+        sp.x += sp.v * (dt / 4);
+      }
+      if (Math.abs(sp.target - sp.x) < 1e-3 && Math.abs(sp.v) < 1e-3) {
+        sp.x = sp.target;
+        sp.v = 0;
+      } else busy = true;
+    }
+    shares[id] = clamp(sp.x, -0.05, 1.05);
+  }
+  return busy;
+}
+
 function place() {
-  const share = state.truck;
+  shares.olla = state.truck;
   for (const node of moving) {
+    const share = shareOf(node);
     const tx = (D.EX[0] * node.m[0] + D.EY[0] * node.m[1] + D.EZ[0] * node.m[2]) * share;
     const ty = (D.EX[1] * node.m[0] + D.EY[1] * node.m[1] + D.EZ[1] * node.m[2]) * share;
-    const text = share === 0 ? "" : `translate(${tx.toFixed(2)} ${ty.toFixed(2)})`;
+    const text = Math.abs(share) < 1e-4 ? "" : `translate(${tx.toFixed(2)} ${ty.toFixed(2)})`;
     if (text !== node.shown) {
       node.shown = text;
       text ? node.el.setAttribute("transform", text) : node.el.removeAttribute("transform");
-      node.el.style.opacity = share > 0.8 ? String(clamp((1 - share) / 0.2, 0, 1)) : "";
+      if (node.ride === "olla") node.el.style.opacity = share > 0.8 ? String(clamp((1 - share) / 0.2, 0, 1)) : "";
     }
   }
-  const next = nodes.map((_, i) => i).sort((a, b) => nodes[a].key + (nodes[a].m[1] ? nodes[a].lift * share : 0) - (nodes[b].key + (nodes[b].m[1] ? nodes[b].lift * share : 0)));
+  const keyOf = (node) => node.key + node.lift * shareOf(node);
+  const next = nodes.map((_, i) => i).sort((a, b) => keyOf(nodes[a]) - keyOf(nodes[b]));
   if (next.some((index, at) => index !== order[at])) {
     const fragment = document.createDocumentFragment();
     for (const index of next) fragment.appendChild(nodes[index].el);
@@ -174,7 +203,9 @@ function setRow(id, value, goal) {
 function describe() {
   let text;
   const m3 = (state.delivered / D.totalKg) * D.load;
-  if (state.phase === "arrive") text = "Olla llegando en reversa";
+  if (mode === "transporte") text = springs.jacks.x > 0.98 ? "Modo transporte · gatos arriba, listo para el tractocamión" : "Subiendo gatos para transporte";
+  else if (springs.apart.target === 1) text = "Despiece · tolvas, compuertas, banda, agua, aire y silo";
+  else if (state.phase === "arrive") text = "Olla llegando en reversa";
   else if (state.phase === "dose") text = `Dosificando · ${fmt1(m3)} de ${D.load} m³ en la olla`;
   else if (state.phase === "mix") text = `Olla cargada · ${D.load} m³ en ${mmss(D.end)}`;
   else if (state.phase === "leave") text = "Olla cargada, sale a obra";
@@ -256,8 +287,14 @@ function stepDose(dts) {
   }
 }
 
+let mode = "operacion";
 function tick(dt) {
   state.clock += dt;
+  const springsBusy = stepSprings(dt);
+  if (mode === "transporte" || springs.jacks.x > 0.02 || springs.apart.target === 1 || springs.apart.x > 0.02) {
+    state.truck = Math.min(1, state.truck + dt / 2.5);
+    return springsBusy || true;
+  }
   const since = state.clock - state.phaseAt;
   state.drumPhase = (state.drumPhase + dt * (state.phase === "mix" ? 2.6 : 1.4)) % 1;
   if (state.phase === "arrive") {
@@ -287,7 +324,35 @@ function tick(dt) {
   }
 }
 
+function stepDust(dt) {
+  const flowing = state.phase === "dose" && state.t > D.cemento.from && state.t < D.cemento.to && !still.matches;
+  if (flowing) {
+    dustClock += dt;
+    while (dustClock > 0.11) {
+      dustClock -= 0.11;
+      const seed = Math.random();
+      puffs.push({ age: 0, life: 1.6 + seed * 0.8, dx: (Math.random() - 0.5) * 5, dy: (Math.random() - 0.5) * 5, rise: 3 + seed * 4, r0: 0.5 + seed * 0.5 });
+    }
+  }
+  for (const puff of puffs) puff.age += dt;
+  while (puffs.length && puffs[0].age > puffs[0].life) puffs.shift();
+}
+
+function drawDust() {
+  const html = puffs
+    .map((p) => {
+      const t = p.age / p.life;
+      const env = Math.sin(Math.PI * Math.min(1, t)) * (1 - t * 0.4);
+      const at = screen([D.dust[0] + p.dx * t, D.dust[1] + p.dy * t, D.dust[2] + p.rise * t]);
+      const r = (p.r0 + 2.2 * t) * D.ks;
+      return `<circle cx="${at[0].toFixed(1)}" cy="${at[1].toFixed(1)}" r="${r.toFixed(2)}" opacity="${(0.32 * env).toFixed(3)}"/>`;
+    })
+    .join("");
+  dustLayer.innerHTML = html;
+}
+
 function render() {
+  drawDust();
   drawHoppers();
   drawJaws();
   drawLoads();
@@ -307,7 +372,10 @@ let visible = false;
 function loop(now) {
   const dt = last ? Math.min((now - last) / 1000, 1 / 20) : 1 / 60;
   last = now;
-  if (state.running) tick(dt);
+  if (state.running) {
+    tick(dt);
+    stepDust(dt);
+  }
   render();
   frame = visible && state.running ? requestAnimationFrame(loop) : 0;
 }
@@ -324,6 +392,36 @@ function setRunning(on) {
   if (on) run();
 }
 playButton.addEventListener("click", () => setRunning(!state.running));
+const suspButtons = [...root.querySelectorAll("[data-susp-set]")];
+const modeButtons = [...root.querySelectorAll("[data-mode-set]")];
+const apartButton = root.querySelector("[data-apart]");
+const mark = (list, attr, value) => list.forEach((b) => (b.dataset[attr] === value ? b.setAttribute("data-on", "") : b.removeAttribute("data-on")));
+root.setAttribute("data-susp", "aire");
+suspButtons.forEach((b) => b.addEventListener("click", () => {
+  root.setAttribute("data-susp", b.dataset.suspSet);
+  mark(suspButtons, "suspSet", b.dataset.suspSet);
+}));
+modeButtons.forEach((b) => b.addEventListener("click", () => {
+  mode = b.dataset.modeSet;
+  mark(modeButtons, "modeSet", mode);
+  springs.jacks.target = mode === "transporte" ? 1 : 0;
+  if (mode === "transporte") {
+    springs.apart.target = 0;
+    apartButton.removeAttribute("data-on");
+    apartButton.setAttribute("aria-pressed", "false");
+    resetBatch();
+  } else go("arrive");
+  setRunning(true);
+}));
+apartButton.addEventListener("click", () => {
+  const on = springs.apart.target !== 1;
+  springs.apart.target = on ? 1 : 0;
+  apartButton.toggleAttribute("data-on", on);
+  apartButton.setAttribute("aria-pressed", String(on));
+  if (on) resetBatch();
+  else go("arrive");
+  setRunning(true);
+});
 stage.addEventListener("keydown", (event) => {
   if (event.key === " " || event.key === "Enter") {
     event.preventDefault();

@@ -40,3 +40,9 @@ tr[data-row="gravilla"]{--hg-grain:#bdb8ae}
 .hg-key{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:8px;background:var(--hg-grain);vertical-align:-1px}
 .hg-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (max-width:700px){.hg-table{font-size:12px}.hg-bar,.hg-bar-h{width:30%}}
+.iso-figure[data-susp="aire"] [data-susp="muelle"],.iso-figure[data-susp="muelle"] [data-susp="aire"]{display:none}
+button.hg-chip{border:0;background:transparent;font:inherit;font-size:12.5px;cursor:pointer}
+button.hg-chip[data-on]{background:var(--hg-hover)}
+.hg-dust circle{fill:var(--hg-dust)}
+.iso{--hg-dust:#cfd2d6}
+.iso[data-theme="light"]{--hg-dust:#9ea3a9}
