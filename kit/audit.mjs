@@ -1,5 +1,5 @@
 import { cameraOf, roundedPlan } from "./iso-kit.mjs";
-import { add3, sub3, mul3, dot3, len3, unit3, pathLength, resample, curveRuns, cut as cutAlong, tangentAlong } from "./lathe.mjs";
+import { add3, sub3, mul3, dot3, len3, unit3, cross3, pathLength, resample, curveRuns, cut as cutAlong, tangentAlong } from "./lathe.mjs";
 import { runsOf } from "./tube.mjs";
 
 const BIG = 1e9;
@@ -64,6 +64,17 @@ export const ring = (F, s0, s1, rIn, rOut, meta = {}) => body(F, [[s0, rIn], [s0
 export function box(min, max, meta = {}) {
   const centre = mul3(add3(min, max), 0.5);
   return { kind: "box", o: centre, axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], half: mul3(sub3(max, min), 0.5), ...meta };
+}
+
+export function hull(verts, faces, meta = {}) {
+  const o = mul3(verts.reduce((sum, v) => add3(sum, v), [0, 0, 0]), 1 / verts.length);
+  const rel = verts.map((v) => sub3(v, o));
+  const planes = faces.map((face) => {
+    const [a, b, c] = face.map((index) => rel[index]);
+    const n = unit3(cross3(sub3(b, a), sub3(c, a)));
+    return [n, dot3(n, a)];
+  });
+  return { kind: "hull", o, verts: rel, faces, planes, ...meta };
 }
 
 export const orientedBox = (centre, axes, half, meta = {}) => ({ kind: "box", o: centre, axes: axes.map(unit3), half, ...meta });
@@ -201,6 +212,12 @@ function baseSdf(shape, p) {
     const along = Math.max(shape.s0 - s, s - shape.s1);
     return Math.hypot(Math.max(flat, 0), Math.max(along, 0)) + Math.min(Math.max(flat, along), 0);
   }
+  if (shape.kind === "hull") {
+    const q = sub3(p, shape.o);
+    let d = -BIG;
+    for (const [n, cut] of shape.planes) d = Math.max(d, dot3(n, q) - cut);
+    return d;
+  }
   if (shape.kind === "box") {
     const q = sub3(p, shape.o);
     const d = shape.axes.map((axis, index) => Math.abs(dot3(q, axis)) - shape.half[index]);
@@ -245,6 +262,9 @@ export function boundsOf(shape) {
         const p = add3(add3(F.o, mul3(F.a, s)), add3(mul3(F.u, x), mul3(F.v, y)));
         for (let i = 0; i < 3; i++) (min[i] = Math.min(min[i], p[i])), (max[i] = Math.max(max[i], p[i]));
       }
+  } else if (shape.kind === "hull") {
+    min = [0, 1, 2].map((i) => Math.min(...shape.verts.map((v) => v[i])) + shape.o[i]);
+    max = [0, 1, 2].map((i) => Math.max(...shape.verts.map((v) => v[i])) + shape.o[i]);
   } else if (shape.kind === "box") {
     const extent = [0, 1, 2].map((i) => shape.axes.reduce((sum, axis, j) => sum + Math.abs(axis[i]) * shape.half[j], 0));
     min = shape.o.map((v, i) => v - extent[i]);
@@ -1020,6 +1040,15 @@ function surfaceOf(shape, spacing = 0.6) {
           const t = (k / around) * 2 * Math.PI;
           points.push(add3(add3(F.o, mul3(F.a, s)), add3(mul3(u, r * Math.cos(t)), mul3(v, r * Math.sin(t)))));
         }
+      }
+    }
+  } else if (shape.kind === "hull") {
+    for (const face of shape.faces) {
+      const ring = face.map((index) => add3(shape.o, shape.verts[index]));
+      for (let i = 1; i < ring.length - 1; i++) {
+        const [a, b, c] = [ring[0], ring[i], ring[i + 1]];
+        const n = Math.max(1, Math.ceil(Math.max(len3(sub3(b, a)), len3(sub3(c, a))) / spacing));
+        for (let u = 0; u <= n; u++) for (let v = 0; v <= n - u; v++) points.push(add3(a, add3(mul3(sub3(b, a), u / n), mul3(sub3(c, a), v / n))));
       }
     }
   } else if (shape.kind === "box") {
