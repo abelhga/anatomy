@@ -12,6 +12,7 @@ import { scene, boxVerts, BOX_FACES, frustum, plate, PLATE_FACES, frameBetween }
 const HERE = dirname(fileURLToPath(import.meta.url));
 const THEME = process.argv.includes("--light") ? "light" : "dark";
 const HOPPERS = process.argv.includes("--two") ? 2 : 3;
+const PUBLISH = process.argv.includes("--publish");
 
 const W = 1180;
 const H = 390;
@@ -114,7 +115,7 @@ function hopper(i) {
   const v = frustum([xm - 3.5, -3.5, OUT_Z, xm + 3.5, 3.5], [cone.x0, -cone.y, HOP_Z[0], cone.x1, cone.y]);
   poly(piece, v, BOX_FACES, { tone: "hi" }, { name: `zeus.hopper${i + 1}.cone` });
   const rim = (ax, ay, bx, by) => k.segment([ax, ay, HOP_Z[1]], [bx, by, HOP_Z[1]], P);
-  const geo = { id: `hop${i + 1}`, xa, xb, ya: -half, yb: half, z1: HOP_Z[0], top: HOP_Z[1], z0: OUT_Z, ox0: xm - 3.5, ox1: xm + 3.5, oy0: -3.5, oy1: 3.5, cx0: cone.x0, cx1: cone.x1, cy0: -cone.y, cy1: cone.y };
+  const geo = { id: `v${HOPPERS}hop${i + 1}`, xa, xb, ya: -half, yb: half, z1: HOP_Z[0], top: HOP_Z[1], z0: OUT_Z, ox0: xm - 3.5, ox1: xm + 3.5, oy0: -3.5, oy1: 3.5, cx0: cone.x0, cx1: cone.x1, cy0: -cone.y, cy1: cone.y };
   HOPPER_GEO.push(geo);
   box(piece, xa, -half, HOP_Z[0], xb, half, HOP_Z[1], { tone: "hi" }, { name: `zeus.hopper${i + 1}.box`, r: 0.4, bevel: 0.6, inner: (plan, z) => L(k.sideSeam(plan, z + 1.2, P, 2), { tone: "faint" }), extra: `<g data-inside="${i}">${hopperInside(P, geo, START_LEVEL[i], GRAINS[i])}</g>` });
   const wing = (a, b, outward, height, flare) => plate(a, b, G.add3(G.add3(b, G.mul3(outward, flare)), [0, 0, height]), G.add3(G.add3(a, G.mul3(outward, flare)), [0, 0, height]), 0.35);
@@ -452,7 +453,7 @@ const DATA = {
 
 const rows = [...M.aggregates.map((a) => ({ id: a.id, name: a.name, unit: "kg", goal: a.kg })), { id: "cemento", name: "Cemento", unit: "kg", goal: M.cemento }, { id: "agua", name: "Agua", unit: "L", goal: M.agua }];
 const fmt = (v) => Math.round(v).toLocaleString("es-MX");
-const table = `<div class="hg-panel"><div class="hg-controls"><button type="button" class="hg-btn" data-play aria-pressed="true"><span class="hg-dot" aria-hidden="true"></span><span data-play-label>Pausa</span></button><span class="hg-seg" role="group" aria-label="Tolvas"><a class="hg-chip"${HOPPERS === 2 ? " data-on" : ""} href="${THEME === "light" ? "zeus2-light.html" : "zeus2.html"}">2 tolvas</a><a class="hg-chip"${HOPPERS === 3 ? " data-on" : ""} href="${THEME === "light" ? "zeus-light.html" : "zeus.html"}">3 tolvas</a></span><span class="hg-seg" role="group" aria-label="Suspensión"><button type="button" class="hg-chip" data-susp-set="aire" data-on>Suspensión neumática</button><button type="button" class="hg-chip" data-susp-set="muelle">Muelles</button></span><span class="hg-seg" role="group" aria-label="Modo"><button type="button" class="hg-chip" data-mode-set="operacion" data-on>Operación</button><button type="button" class="hg-chip" data-mode-set="transporte">Transporte</button></span><button type="button" class="hg-chip" data-apart aria-pressed="false">Despiece</button><span class="hg-clock" data-clock>0:00</span></div><table class="hg-table"><caption>Bachada de ${LOAD_M3} m³ · concreto f'c 250 · receta por m³: cemento ${RECIPE.cemento} kg, arena ${RECIPE.arena} kg, grava ${RECIPE.grava} kg, agua ${RECIPE.agua} L</caption><thead><tr><th scope="col">Material</th><th scope="col">Objetivo</th><th scope="col">Pesado</th><th scope="col" class="hg-bar-h"><span class="hg-sr">Avance</span></th></tr></thead><tbody>${rows.map((row) => `<tr data-row="${row.id}"><th scope="row"><span class="hg-key" data-grain="${row.id}"></span>${row.name}</th><td>${fmt(row.goal)} ${row.unit}</td><td data-got>0 ${row.unit}</td><td class="hg-bar"><span data-bar></span></td></tr>`).join("")}</tbody></table></div>`;
+const table = `<div class="hg-panel"><div class="hg-controls"><button type="button" class="hg-btn" data-play aria-pressed="true"><span class="hg-dot" aria-hidden="true"></span><span data-play-label>Pausa</span></button><span class="hg-seg" role="group" aria-label="Tolvas">${PUBLISH ? `<button type="button" class="hg-chip" data-variant-set="2"${HOPPERS === 2 ? " data-on" : ""}>2 tolvas</button><button type="button" class="hg-chip" data-variant-set="3"${HOPPERS === 3 ? " data-on" : ""}>3 tolvas</button>` : `<a class="hg-chip"${HOPPERS === 2 ? " data-on" : ""} href="${THEME === "light" ? "zeus2-light.html" : "zeus2.html"}">2 tolvas</a><a class="hg-chip"${HOPPERS === 3 ? " data-on" : ""} href="${THEME === "light" ? "zeus-light.html" : "zeus.html"}">3 tolvas</a>`}</span><span class="hg-seg" role="group" aria-label="Suspensión"><button type="button" class="hg-chip" data-susp-set="aire" data-on>Suspensión neumática</button><button type="button" class="hg-chip" data-susp-set="muelle">Muelles</button></span><span class="hg-seg" role="group" aria-label="Modo"><button type="button" class="hg-chip" data-mode-set="operacion" data-on>Operación</button><button type="button" class="hg-chip" data-mode-set="transporte">Transporte</button></span><button type="button" class="hg-chip" data-apart aria-pressed="false">Despiece</button><span class="hg-clock" data-clock>0:00</span></div><table class="hg-table"><caption>Bachada de ${LOAD_M3} m³ · concreto f'c 250 · receta por m³: cemento ${RECIPE.cemento} kg, arena ${RECIPE.arena} kg, grava ${RECIPE.grava} kg, agua ${RECIPE.agua} L</caption><thead><tr><th scope="col">Material</th><th scope="col">Objetivo</th><th scope="col">Pesado</th><th scope="col" class="hg-bar-h"><span class="hg-sr">Avance</span></th></tr></thead><tbody>${rows.map((row) => `<tr data-row="${row.id}"><th scope="row"><span class="hg-key" data-grain="${row.id}"></span>${row.name}</th><td>${fmt(row.goal)} ${row.unit}</td><td data-got>0 ${row.unit}</td><td class="hg-bar"><span data-bar></span></td></tr>`).join("")}</tbody></table></div>`;
 const css = `
 .iso{--hg-blue:#2f7fd1;--hg-blue-top:#5aa0e6;--hg-black:#2a2a2a}
 .hg-blue .iso-fill,.hg-blue .iso-top{fill:var(--hg-blue-top)}.hg-blue .iso-shade{fill:var(--hg-blue)}
@@ -477,11 +478,22 @@ const plateBody = k
       { mark: "lit", label: "Banda de 26\": lleva los agregados al matacaídas" },
       { mark: "flat", label: "Bazuca de 8\" del Thor: mete el cemento por arriba" },
     ],
-    caption: `La Zeus 30 dosifica hasta 65 m³/h. Cada tolva de 9 m³ descansa en celdas de carga y su compuerta de almeja abre hasta que la tolva pierde exactamente el peso de la receta; la banda lo sube al matacaídas. Al mismo tiempo el Thor 36 (50 t de cemento, pesado con 4 celdas de 30 t) entrega el cemento con su bazuca y el tanque de 2,100 L pesa el agua por masa, no por volumen. Todo cae por la manga de 60 cm a la olla. Tiempos reales de una olla de ${LOAD_M3} m³ a 65 m³/h, mostrados ${SPEEDUP} veces más rápido.`,
+    caption: `La Zeus 30 dosifica hasta 65 m³/h. Cada tolva de 9 m³ descansa en celdas de carga y su compuerta de almeja abre hasta que la tolva pierde exactamente el peso de la receta; la banda lo sube al matacaídas. Al mismo tiempo el Thor 36 (50 t de cemento, pesado con 4 celdas de 30 t) entrega el cemento con su bazuca y el tanque de 2,100 L pesa el agua por masa, no por volumen. Todo cae por la manga de 60 cm a la olla. Tiempos reales de una olla de ${LOAD_M3} m³ a 65 m³/h, mostrados ${SPEEDUP} veces más rápido. Ilustración con medidas aproximadas, no es un plano de fabricación.`,
     body: `<div class="iso-stage" tabindex="0">${svg}</div>`,
   })
   .replace("</div><figcaption", `</div>${table}<figcaption`);
-const LIVE = readFileSync(join(HERE, "live.js"), "utf8").replace("__DATA__", JSON.stringify(DATA)).replace("__INSIDE__", hopperInside.toString().replace(/\bk\./g, ""));
+const LIVE_RAW = readFileSync(join(HERE, "live.js"), "utf8").replace("__DATA__", JSON.stringify(DATA)).replace("__INSIDE__", hopperInside.toString().replace(/\bk\./g, ""));
+const LIVE = LIVE_RAW.replace("__ROOT__", 'document.querySelector(".iso-figure")');
+if (PUBLISH) {
+  const part = {
+    body: plateBody.replace('<figure class="iso-figure">', `<figure class="iso-figure" data-variant="${HOPPERS}"${HOPPERS === 2 ? " hidden" : ""}>`),
+    live: `(() => {\n${LIVE_RAW.replace("__ROOT__", `document.querySelector('[data-variant="${HOPPERS}"]')`)}\n})();`,
+    css: css + readFileSync(join(HERE, "zeus.css"), "utf8"),
+  };
+  writeFileSync(join(HERE, `part${HOPPERS}.json`), JSON.stringify(part));
+  console.log("wrote part", HOPPERS);
+  process.exit(0);
+}
 const page = k.pageHtml({ title: "Zeus 30 + Thor 36", theme: THEME, body: plateBody, script: kitScript() + LIVE, width: 1240 }).replace("</style>", `${css}${readFileSync(join(HERE, "zeus.css"), "utf8")}</style>`).replace('<html lang="en">', '<html lang="es">');
 const name = (HOPPERS === 2 ? "zeus2" : "zeus") + (THEME === "light" ? "-light" : "") + ".html";
 writeFileSync(join(HERE, name), page);
